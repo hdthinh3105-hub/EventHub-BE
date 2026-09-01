@@ -5,6 +5,11 @@ import { ApiResponse } from '../../utils/apiResponse';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const orderController = {
+  getOrder: asyncHandler(async (req: Request, res: Response) => {
+    const result = await orderService.getOrderById(req.params.id as string, req.user!);
+    res.status(200).json(ApiResponse.success(result, 'Lấy thông tin đơn hàng thành công'));
+  }),
+
   checkout: asyncHandler(async (req: Request, res: Response) => {
     const result = await orderService.checkout(req.body, req.user!);
     res.status(201).json(ApiResponse.success(result, 'Thanh toán thành công, vé đã được phát hành'));

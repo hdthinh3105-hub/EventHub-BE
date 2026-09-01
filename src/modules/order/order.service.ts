@@ -37,6 +37,43 @@ function cellToString(value: ExcelJS.CellValue): string {
 }
 
 export const orderService = {
+  async getOrderById(orderId: string, user: JwtPayload) {
+    const order = await orderRepository.findOrderByIdWithTickets(orderId, user.userId);
+    if (!order) {
+      throw new AppError('Không tìm thấy đơn hàng', 404);
+    }
+
+    const event = order.orderItems[0]?.ticketType
+      ? await eventRepository.findById(
+          (await ticketTypeRepository.findById(order.orderItems[0].ticketTypeId))?.eventId ?? '',
+        )
+      : null;
+
+    return {
+      order: {
+        id: order.id,
+        userId: order.userId,
+        totalAmount: order.totalAmount.toString(),
+        status: order.status,
+        createdAt: order.createdAt.toISOString(),
+        updatedAt: order.updatedAt.toISOString(),
+      },
+      eventTitle: event?.title ?? '',
+      eventId: event?.id ?? '',
+      tickets: order.orderItems.flatMap((oi) =>
+        oi.tickets.map((t) => ({
+          id: t.id,
+          orderItemId: t.orderItemId,
+          qrCode: t.qrCode,
+          isCheckedIn: t.isCheckedIn,
+          createdAt: t.createdAt.toISOString(),
+        })),
+      ),
+      ticketTypeName: order.orderItems[0]?.ticketType?.name ?? '',
+      quantity: order.orderItems.reduce((sum, oi) => sum + oi.quantity, 0),
+    };
+  },
+
   async checkout(input: CheckoutInput, user: JwtPayload) {
     const hold = await orderRepository.findHoldById(input.holdId);
     if (!hold) {

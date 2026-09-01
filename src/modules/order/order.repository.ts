@@ -10,6 +10,20 @@ export const orderRepository = {
     });
   },
 
+  findOrderByIdWithTickets(orderId: string, userId: string) {
+    return prisma.order.findFirst({
+      where: { id: orderId, userId },
+      include: {
+        orderItems: {
+          include: {
+            ticketType: { select: { name: true } },
+            tickets: true,
+          },
+        },
+      },
+    });
+  },
+
   // Toàn bộ thao tác này PHẢI atomic - hoặc tất cả cùng thành công,
   // hoặc không gì xảy ra cả. Nếu chỉ tăng soldQuantity mà tạo Ticket
   // thất bại giữa chừng, ta sẽ có "vé đã bán" nhưng KHÔNG CÓ vé thật

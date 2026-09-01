@@ -1,66 +1,71 @@
 # EventHub — Nền tảng Đặt vé & Quản lý Sự kiện
 
-Backend API cho nền tảng đặt vé sự kiện (kiểu Ticketbox/Eventbrite thu nhỏ), xây dựng để luyện tập và chứng minh năng lực xử lý các bài toán backend thật: **race condition khi nhiều người tranh mua vé cuối cùng, RBAC + Resource-based Authorization, xử lý bất đồng bộ (message queue), caching, realtime, và vận hành hạ tầng (Docker/CI-CD/Monitoring)**. 
+Fullstack Event Ticketing Platform (kiểu Ticketbox/Eventbrite thu nhỏ) — **Backend** Express + Prisma + PostgreSQL/Redis/RabbitMQ/Socket.IO và **Frontend** React + Vite. Tập trung vào các bài toán backend thật: **race condition tranh vé, RBAC + Resource-based Auth, queue bất đồng bộ, cache, realtime, Docker/CI-CD/Monitoring**.
 
-**Link Demo FE: https://eventhub-fe.onrender.com**.
-
-**Link Demo BE: https://eventhub-1lf8.onrender.com**.
-
-**Link postman: https://www.postman.com/hdthinh3105/workspace/eventhub**.
-
-> Dự án không phải 1 CRUD app thông thường — mỗi quyết định kỹ thuật đều xuất phát từ 1 bài toán nghiệp vụ có thật, được ghi chú ngay trong code.
-
+**Demo:** FE https://eventhub-fe.onrender.com — BE https://eventhub-1lf8.onrender.com — Postman https://www.postman.com/hdthinh3105/workspace/eventhub
 
 ---
 
 ## Mục lục
 
-- [Kiến trúc tổng quan](#kiến-trúc-tổng-quan)
-- [Sơ đồ dữ liệu (ERD)](#sơ-đồ-dữ-liệu-erd)
+- [Tài khoản Seed](#tài-khoản-seed)
+- [Kiến trúc](#kiến-trúc)
+- [Sơ đồ dữ liệu](#sơ-đồ-dữ-liệu-erd)
 - [Tech Stack](#tech-stack)
-- [Tính năng chính](#tính-năng-chính)
-- [Cài đặt & Chạy thử](#cài-đặt--chạy-thử)
+- [Tính năng](#tính-năng)
+- [Chạy local (npm)](#chạy-local-npm)
+- [Chạy bằng Docker (FE/BE riêng biệt)](#chạy-bằng-docker-febe-riêng-biệt)
 - [Biến môi trường](#biến-môi-trường)
-- [Gửi email qua Gmail REST API (thay SMTP)](#gửi-email-qua-gmail-rest-api-thay-smtp)
+- [Gửi email qua Gmail REST API](#gửi-email-qua-gmail-rest-api)
 - [Testing](#testing)
 - [CI/CD](#cicd)
 - [Monitoring](#monitoring)
-- [Giới hạn đã biết](#giới-hạn-đã-biết)
 - [Tài liệu API](#tài-liệu-api)
+- [Giới hạn đã biết](#giới-hạn-đã-biết)
 
 ---
 
-## Kiến trúc tổng quan
+## Tài khoản Seed
+
+`prisma/seed.ts` tạo sẵn 4 roles, 5 categories, 3 venues và **4 user demo** (chạy `npx prisma db seed`, idempotent bằng `upsert`):
+
+| Email | Mật khẩu | Role | Dùng để |
+|---|---|---|---|
+| `admin@eventhub.vn` | `Password123!` | ADMIN | Quản lý user/role, category, venue, mọi event |
+| `organizer@eventhub.vn` | `Password123!` | ORGANIZER | Tạo/sửa event, quản lý ticket type, gán staff, check-in, export/import |
+| `staff@eventhub.vn` | `Password123!` | STAFF | Được Organizer gán vào event mới check-in được |
+| `customer@eventhub.vn` | `Password123!` | CUSTOMER | Giữ chỗ (hold) + checkout mua vé |
+
+Tất cả đã `isVerified=true` nên login ngay, không cần verify email. Ngoài ra seed tạo:
+
+- **Categories:** Âm nhạc, Hội thảo, Thể thao, Nghệ thuật, Công nghệ
+- **Venues:** Nhà hát Hòa Bình (TP.HCM, 2000), White Palace (TP.HCM, 1500), SVĐ Mỹ Đình (Hà Nội, 40000)
+
+---
+
+## Kiến trúc
 
 ```
-Client (FE React / Postman)
-        │
-        ▼
-┌──────────────────────────────────────────┐
-│  Express App (Node.js + TypeScript)      │
-│  ├── Middleware: Helmet, CORS, Rate Limit│
-│  ├── Auth (JWT access/refresh + rotation)│
-│  ├── RBAC + Resource-based Authorization │
-│  └── Socket.IO (realtime dashboard)      │
-└───────┬───────────┬──────────┬───────────┘
-        │           │          │
-        ▼           ▼          ▼
-   PostgreSQL     Redis     RabbitMQ
-   (Neon)       (Upstash)  (CloudAMQP)
-   - dữ liệu     - cache     - queue gửi
-     nghiệp vụ     Cache-      email bất
-     qua Prisma    Aside       đồng bộ
-                              (Consumer
-                               riêng)
-        │
-        ▼
-   Cloudinary (ảnh bìa sự kiện)
+Browser (React + Vite)
+   │  REST / Socket.IO         Express (Node + TS)
+   ├──────────────────────────►┌─────────────────────────────┐
+   │                           │ Helmet, CORS, Rate Limit    │
+   │                           │ JWT access/refresh + rotation│
+   │                           │ RBAC + Resource-based Auth  │
+   │                           │ Socket.IO (room event/user)  │
+   │                           └─┬──────┬──────┬─────────────┘
+   │                             │      │      │
+   │                        PostgreSQL Redis RabbitMQ
+   │                        (Prisma) (cache) (email queue)
+   │                             │      │      │
+   │                        Cloudinary   └─► Consumer gửi mail + QR
+   │                        (ảnh bìa)
+   │
+   └─► Prometheus :9090 scrapes /metrics ─► Grafana :3001
 ```
 
-**Nguyên tắc kiến trúc:**
-- **Clean Architecture theo module** (feature-based, không phải layer-based): mỗi module (`auth`, `event`, `order`...) tự chứa đủ `validation → repository → service → controller → route`
-- **Repository Pattern**: chỉ Repository được chạm Prisma trực tiếp — Service không bao giờ import `prisma`, giúp mock dễ dàng khi viết Unit Test
-- **Toàn bộ dịch vụ hạ tầng dùng managed cloud service** (Neon/Upstash/CloudAMQP/Cloudinary) thay vì tự host qua Docker Compose — phù hợp với quy mô cá nhân, tránh chi phí VPS, vẫn giữ nguyên tư duy kiến trúc như khi tự host thật
+- **Backend** `eventhub-backend`: Clean Architecture theo module (`auth`, `event`, `ticket-type`, `ticket-hold`, `order`, `event-staff`, `checkin`, `notification`...), mỗi module `validation → repository → service → controller → route`, Repository Pattern (Service không import `prisma` trực tiếp, dễ mock test).
+- **Frontend** `eventhub-frontend`: React 19 + React Router, Context (`Auth`, `Toast`), `fetch` client tự refresh token (single-flight), `useEventSocket` hook, `ErrorBoundary` + `React.lazy` code splitting.
 
 ---
 
@@ -68,260 +73,206 @@ Client (FE React / Postman)
 
 ```mermaid
 erDiagram
-    ROLE ||--o{ USER : "gán cho"
-    USER ||--o{ REFRESH_TOKEN : "sở hữu"
-    USER ||--o{ EMAIL_VERIFICATION : "sở hữu"
-    USER ||--o{ PASSWORD_RESET : "sở hữu"
-    USER ||--o{ EVENT : "tổ chức (organizer)"
-    USER ||--o{ EVENT_STAFF : "được gán làm"
-    USER ||--o{ ORDER : "đặt"
-    USER ||--o{ CHECKIN : "thực hiện (staff)"
-    USER ||--o{ TICKET_HOLD : "giữ chỗ"
-    USER ||--o{ NOTIFICATION : "nhận"
-    USER ||--o{ AUDIT_LOG : "thực hiện thao tác"
-
-    CATEGORY ||--o{ EVENT : "phân loại"
-    VENUE ||--o{ EVENT : "tổ chức tại"
-    EVENT ||--o{ EVENT_STAFF : "gán Staff"
-    EVENT ||--o{ TICKET_TYPE : "có các loại vé"
-
-    TICKET_TYPE ||--o{ TICKET_HOLD : "giữ chỗ tạm"
-    TICKET_TYPE ||--o{ ORDER_ITEM : "được mua"
-
-    ORDER ||--o{ ORDER_ITEM : "gồm"
-    ORDER_ITEM ||--o{ TICKET : "phát hành"
-    TICKET ||--o{ CHECKIN : "lịch sử quét"
-
-    USER {
-        string id PK
-        string roleId FK
-        string email UK
-        string passwordHash
-        boolean isVerified
-        boolean isActive
-    }
-    EVENT {
-        string id PK
-        string organizerId FK
-        string categoryId FK
-        string venueId FK
-        string title
-        datetime startTime
-        datetime endTime
-        enum status "DRAFT|PUBLISHED|CANCELLED|COMPLETED"
-    }
-    TICKET_TYPE {
-        string id PK
-        string eventId FK
-        decimal price
-        int totalQuantity
-        int soldQuantity
-        int version "optimistic locking"
-    }
-    TICKET_HOLD {
-        string id PK
-        string ticketTypeId FK
-        string userId FK
-        int quantity
-        datetime expiresAt "TTL 10 phút"
-    }
-    ORDER {
-        string id PK
-        string userId FK
-        decimal totalAmount
-        enum status "PENDING|PAID|FAILED|EXPIRED|CANCELLED"
-    }
-    TICKET {
-        string id PK
-        string orderItemId FK
-        string qrCode UK
-        boolean isCheckedIn
-    }
+    ROLE ||--o{ USER : gán
+    USER ||--o{ EVENT : tổ chức
+    USER ||--o{ EVENT_STAFF : được gán
+    USER ||--o{ ORDER : đặt
+    USER ||--o{ TICKET_HOLD : giữ chỗ
+    CATEGORY ||--o{ EVENT : phân loại
+    VENUE ||--o{ EVENT : tại
+    EVENT ||--o{ TICKET_TYPE : có
+    EVENT ||--o{ EVENT_STAFF : gán
+    TICKET_TYPE ||--o{ TICKET_HOLD : giữ tạm
+    TICKET_TYPE ||--o{ ORDER_ITEM : được mua
+    ORDER ||--o{ ORDER_ITEM : gồm
+    ORDER_ITEM ||--o{ TICKET : phát hành
+    TICKET ||--o{ CHECKIN : lịch sử
 ```
 
-**17 bảng nghiệp vụ**, chia 4 nhóm: Auth & User, Event, Ticket (giao dịch), Vận hành (Notification/AuditLog). Chi tiết thiết kế và lý do (VD "vì sao tách `TicketHold` khỏi `Order`") xem trực tiếp trong `prisma/schema.prisma` — mọi quyết định thiết kế đều có comment giải thích.
+17 bảng: Auth/User, Event, Ticket (giao dịch), Vận hành (Notification/AuditLog). Chi tiết + comment lý do thiết kế xem `eventhub-backend/prisma/schema.prisma`.
 
 ---
 
 ## Tech Stack
 
-| Nhóm | Công nghệ | Vai trò |
-|---|---|---|
-| Runtime | Node.js, TypeScript, Express 5 | API server |
-| Database | PostgreSQL (Neon) + Prisma ORM | Lưu trữ dữ liệu nghiệp vụ |
-| Cache | Redis (Upstash) + ioredis | Cache-Aside Pattern cho API đọc nhiều |
-| Message Queue | RabbitMQ (CloudAMQP) + amqplib | Gửi email bất đồng bộ |
-| Realtime | Socket.IO | Đẩy sự kiện realtime: vé bán, hold hết hạn, check-in, thông báo (room `event:<id>` + `user:<id>`) |
-| Object Storage | Cloudinary | Lưu ảnh bìa sự kiện |
-| Validation | Zod | Validate request, tự sinh TypeScript type |
-| Auth | JWT (access + refresh token rotation) | Xác thực + RBAC |
-| Testing | Jest, Supertest, ts-jest | Unit test (mock Repository) + Integration test (middleware) |
-| Containerization | Docker, Docker Compose (multi-stage build) | Đóng gói & triển khai |
-| CI/CD | GitHub Actions | Tự động test + deploy lên Render |
-| Monitoring | Prometheus + Grafana | Metrics: latency, tổng vé bán, tỷ lệ giữ chỗ thất bại |
-| Email | Gmail REST API (OAuth2, mặc định) + Nodemailer (fallback SMTP) + qrcode | Gửi vé kèm ảnh QR thật qua HTTPS, không bị Render free tier chặn |
-| Excel | ExcelJS | Export doanh thu / Import vé mời hàng loạt |
+| Nhóm | Công nghệ |
+|---|---|
+| Runtime | Node 20, TypeScript, Express 5 |
+| DB | PostgreSQL (Neon local: Postgres 16) + Prisma 6 |
+| Cache | Redis (Upstash local: Redis 7) + ioredis, Cache-Aside |
+| Queue | RabbitMQ (CloudAMQP local: RabbitMQ 3) + amqplib, durable `email_notifications` |
+| Realtime | Socket.IO 4 (room `event:<id>` public + `user:<id>` private) |
+| Storage | Cloudinary (ảnh bìa) |
+| Validation | Zod |
+| Auth | JWT access 15m + refresh 7d (hash SHA-256, rotation) |
+| Email | Gmail REST API (OAuth2, port 443) fallback Nodemailer SMTP + `qrcode` |
+| Excel | ExcelJS |
+| Test | Jest + Supertest (BE), Vitest + Testing Library + jsdom (FE) |
+| Container | Docker multi-stage, Docker Compose |
+| CI/CD | GitHub Actions → Render |
+| Monitoring | Prometheus + Grafana (`prom-client`) |
 
 ---
 
-## Tính năng chính
+## Tính năng
 
-### Authentication & Authorization
-- Đăng ký/đăng nhập, JWT access token (15p) + refresh token (7 ngày, lưu hash, hỗ trợ **token rotation**)
-- Xác thực email, quên/đặt lại mật khẩu (đổi mật khẩu tự động **thu hồi mọi session cũ**)
-- **RBAC 4 role**: Admin / Organizer / Staff / Customer
-- **Resource-based Authorization**: Organizer chỉ sửa được Event của chính mình (không chỉ dựa vào role)
+**Auth & Phân quyền:** Đăng ký/đăng nhập, refresh rotation, verify email, forgot/reset (đổi pass thu hồi mọi session), 4 role, Organizer chỉ sửa event của mình, Staff chỉ check-in khi được gán (3 tầng: ADMIN bypass / ORGANIZER sở hữu / STAFF được gán).
 
-### Race Condition (phần "đinh" của dự án)
-- Cơ chế **giữ chỗ vé (TicketHold)** dùng **Optimistic Locking** (cột `version`, thuật toán CAS + retry) — đã load-test bằng `autocannon`, xác nhận **không bao giờ oversell** dù nhiều request tranh chấp đồng thời
-- Job dọn tự động hold hết hạn, transaction atomic khi checkout
+**Race Condition:** `TicketHold` 10 phút + Optimistic Locking (`ticket_types.version`, CAS retry 5 lần, metric `holdRejectedCounter{reason}`), checkout transaction atomic (`soldQuantity` increment + Order/OrderItem/Ticket + xóa hold).
 
-### Realtime (Socket.IO)
-Kênh đẩy dữ liệu trực tiếp tới client qua **WebSocket**, sử dụng mô hình **room** để định tuyến đúng người nhận:
-- Room `event:<eventId>` — dữ liệu **công khai** của 1 sự kiện (số vé còn lại, luồng check-in). Bất kỳ ai cũng vào được, kể cả **anonymous** (trang khách xem sự kiện không cần đăng nhập vẫn thấy số vé cập nhật realtime).
-- Room `user:<userId>` — dữ liệu **riêng tư** (thông báo cá nhân). Socket chỉ được join room này khi **đã xác thực bằng accessToken**; anonymous không bao giờ nhận được thông báo.
+**Realtime:** `ticket_sold`, `hold_released`, `checkin_processed` (room `event:<id>`, cả anonymous), `notification` (room `user:<id>`). Frontend `useEventSocket` tự join room, `EventDetailPage` cập nhật "Còn lại" realtime, `OrganizerDashboard` toast, `EventManagePage` luồng check-in.
 
-**Các sự kiện realtime đang có:**
-| Sự kiện | Phát khi | Room | Ý nghĩa nghiệp vụ |
-|---|---|---|---|
-| `ticket_sold` | Thanh toán thành công | `event:<id>` | Organizer thấy toast "có vé mới bán" ngay lập tức |
-| `hold_released` | Job dọn hold hết hạn | `event:<id>` | Số vé bị giữ chỗ hết hạn được **hoàn về quỹ vé** — khách xem thấy "Còn lại" tăng lại realtime |
-| `checkin_processed` | Một vé được quét tại cổng | `event:<id>` | Mọi người đang mở trang quản lý thấy luồng khách vào sự kiện realtime |
-| `notification` | Có thông báo mới cho user (VD vé vừa bán cho sự kiện của mình) | `user:<id>` | Thông báo xuất hiện không cần F5, đồng bộ với REST `GET /api/notifications` |
+**Vận hành event:** CRUD Event/TicketType/Category/Venue (chặn xóa khi đã bán, chặn sửa khi CANCELLED/COMPLETED), upload ảnh Cloudinary, gán Staff (dropdown `GET /api/users?role=STAFF` cho cả ADMIN và ORGANIZER), check-in QR, export doanh thu / import vé mời Excel.
 
-Socket.IO chạy **chung 1 port** với Express (`initSocket(httpServer)` trong `server.ts`), emit qua helper `emitToEvent`/`emitToUser` (guard an toàn khi server chưa init socket trong môi trường test).
-
-### Vận hành sự kiện
-- CRUD Event/TicketType/Category/Venue với đầy đủ ràng buộc nghiệp vụ (không xóa khi đã có giao dịch, không sửa được Event đã hủy/kết thúc...)
-- Gán Staff vào Event, Check-in vé qua QR code (3 tầng phân quyền: Admin bypass / Organizer sở hữu / Staff được gán)
-- Export báo cáo doanh thu ra Excel, Import vé mời hàng loạt từ Excel
-
-### Hạ tầng & Vận hành
-- Cache-Aside Pattern (Redis) cho API đọc nhiều
-- Gửi email bất đồng bộ qua RabbitMQ (không chặn response API)
-- Upload ảnh qua Cloudinary
-- Dashboard realtime (Socket.IO): toast vé mới bán, luồng check-in, số vé hoàn trả khi hold hết hạn, và thông báo cá nhân đẩy thẳng tới Organizer
-- Full-Text Search (PostgreSQL `tsvector`/`ts_rank`, xếp hạng theo độ liên quan)
-- Audit Log ghi vết mọi thao tác nhạy cảm (đổi role, sửa/xóa Event...)
-- Rate Limiting chống brute-force
-- Containerized bằng Docker (multi-stage build), CI/CD tự động qua GitHub Actions, Monitoring qua Prometheus/Grafana
+**Khác:** Full-Text Search Postgres (`to_tsvector` + `ts_rank`, `LIMIT 200`), AuditLog, Rate Limit, Helmet, CORS, ErrorBoundary + lazy loading FE.
 
 ---
 
-## Cài đặt & Chạy thử
+## Chạy local (npm)
 
-### Yêu cầu
-- Node.js ≥ 20
-- Docker Desktop (nếu chạy qua container)
-- Tài khoản: [Neon](https://neon.tech) (Postgres), [Upstash](https://upstash.com) (Redis), [CloudAMQP](https://www.cloudamqp.com) (RabbitMQ), [Cloudinary](https://cloudinary.com) — đều có free tier không cần thẻ
+Yêu cầu: Node ≥ 20
 
-### Chạy local (dev)
 ```bash
-git clone https://github.com/hdthinh3105-hub/EventHub.git
+# Backend
 cd eventhub-backend
-npm install
-cp .env.example .env   # điền đầy đủ giá trị thật (xem bảng biến môi trường bên dưới)
+npm ci
+cp .env.example .env   # điền đủ (bảng bên dưới)
 npx prisma generate
 npx prisma migrate dev
-npx prisma db seed      # tạo 4 role + user demo (mật khẩu: Password123!)
-npm run dev
-```
-Server chạy tại `http://localhost:4000`. Kiểm tra: `GET /health`.
+npx prisma db seed     # tạo roles/categories/venues + 4 user demo
+npm run dev            # http://localhost:4000  GET /health
 
-### Chạy qua Docker
+# Frontend (terminal khác)
+cd eventhub-frontend
+npm ci
+cp .env.example .env   # VITE_API_URL=http://localhost:4000
+npm run dev            # http://localhost:5173
+```
+
+---
+
+## Chạy bằng Docker (FE/BE riêng biệt)
+
+Mỗi project tự chứa Docker, **không gộp monorepo root**. BE đã kèm Postgres/Redis/RabbitMQ để chạy độc lập, không cần Neon/Upstash/CloudAMQP.
+
+### Backend — 6 services
+
 ```bash
-docker compose build
-docker compose up -d
+cd eventhub-backend
+cp .env.example .env   # chỉ cần điền JWT_*, GMAIL_*, CLOUDINARY_* — infra URL đã override trong compose
+docker compose up --build -d
+# BE:        http://localhost:4000  (health /health)
+# Postgres:  localhost:5432  (eventhub / eventhub_password / eventhub)
+# Redis:     localhost:6379
+# RabbitMQ:  localhost:5672  + Management http://localhost:15672 (guest/guest)
+# Prometheus http://localhost:9090
+# Grafana    http://localhost:3001  (admin/admin)
+docker compose logs -f app   # xem migrate + seed + server
+docker compose down          # dừng
+docker compose down -v       # dừng + xóa data
 ```
-Kèm theo Prometheus (`:9090`) và Grafana (`:3001`, tài khoản `admin`/`admin`) chạy cùng lúc để giám sát local.
 
-### Tài liệu test API đầy đủ
-Xem [`docs/API_TESTING_GUIDE.md`](./docs/API_TESTING_GUIDE.md) — body JSON mẫu + ràng buộc nghiệp vụ cho toàn bộ endpoint, kèm luồng test End-to-End 12 bước.
+`Dockerfile` multi-stage: `builder` (npm ci + prisma generate + build) → `production` (npm ci --omit=dev + tsx, copy dist + prisma client, `ENTRYPOINT docker-entrypoint.sh` tự `prisma migrate deploy` + `npx tsx prisma/seed.ts` + chờ RabbitMQ rồi `node dist/server.js`). `.dockerignore` đã fix (tên đúng `.dockerignore`).
+
+### Frontend — 1 service
+
+```bash
+cd eventhub-frontend
+docker compose up --build -d
+# FE: http://localhost:8080  (nginx, SPA fallback try_files, gzip)
+docker compose logs -f
+```
+
+Build-time env: `VITE_API_URL` bake vào bundle qua `ARG` (mặc định `http://localhost:4000` trong `docker-compose.yml`). Đổi backend URL:
+
+```bash
+docker compose build --build-arg VITE_API_URL=https://eventhub-1lf8.onrender.com
+```
 
 ---
 
 ## Biến môi trường
 
+### Backend (`eventhub-backend/.env`)
+
 | Biến | Mô tả |
 |---|---|
-| `DATABASE_URL` | Connection string PostgreSQL (Neon) |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Secret ký JWT, tối thiểu 32 ký tự, **khác nhau** |
-| `REDIS_URL` | Connection string Redis (Upstash, dạng `rediss://`) |
-| `RABBITMQ_URL` | Connection string RabbitMQ (CloudAMQP) |
-| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Tài khoản Gmail dùng gửi email (App Password — dùng khi fallback SMTP hoặc local dev) |
-| `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET` / `GMAIL_REFRESH_TOKEN` | Cấu hình OAuth2 để gửi qua **Gmail REST API** (bắt buộc nếu chạy trên Render free tier — xem mục bên dưới). Đủ 3 biến này thì dùng REST, thiếu thì fallback SMTP |
-| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Thông tin Cloudinary |
-| `FRONTEND_URL` | URL Frontend (dùng tạo link trong email; khi có FE deploy thì set đúng domain FE thật) |
-| `RATE_LIMIT_MAX` | Giới hạn request toàn API theo IP trong 15 phút (mặc định 600). FE có realtime + tải lại danh sách có thể cần tăng lên, nhưng đừng quá cao để tránh lạm dụng |
-| `HOLD_CLEANUP_INTERVAL_MS` | Task dọn hold hết hạn chạy mỗi N ms (mặc định 43200000 = 12 giờ). Hold hết hạn "chết" ngay theo expiresAt nên job này chỉ dọn row cũ; chạy thường xuyên giữ Neon compute không ngủ, đốt CU-hrs |
-| `ALLOWED_ORIGINS` | Danh sách domain được phép gọi API (CORS), phân cách dấu phẩy |
+| `DATABASE_URL` | Postgres connection (Neon local: `postgresql://eventhub:eventhub_password@postgres:5432/eventhub` — compose đã set, không cần điền khi chạy Docker) |
+| `REDIS_URL` | Redis (Upstash local: `redis://redis:6379`) |
+| `RABBITMQ_URL` | RabbitMQ (CloudAMQP local: `amqp://guest:guest@rabbitmq:5672`) |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | ≥ 32 ký tự, khác nhau |
+| `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | Mặc định 15m / 7d |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Gmail SMTP fallback |
+| `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET` / `GMAIL_REFRESH_TOKEN` | Gmail REST API (đủ 3 thì dùng REST port 443, thiếu thì fallback SMTP) |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Upload ảnh bìa (vẫn lưu trên Cloudinary kể cả khi chạy Docker) |
+| `FRONTEND_URL` | URL FE để tạo link email verify/reset |
+| `ALLOWED_ORIGINS` | CORS, phân cách dấu phẩy |
+| `RATE_LIMIT_MAX` | Mặc định 600 / 15 phút |
+| `HOLD_CLEANUP_INTERVAL_MS` | Mặc định 43200000 (12h) |
+| `PORT` / `NODE_ENV` | Mặc định 4000 / development |
 
-Xem đầy đủ ràng buộc validate tại `src/config/env.ts` (dùng Zod, fail-fast nếu thiếu biến).
+Validate bằng Zod `src/config/env.ts` (fail-fast).
+
+### Frontend (`eventhub-frontend/.env`)
+
+| Biến | Mô tả |
+|---|---|
+| `VITE_API_URL` | URL backend, VD `http://localhost:4000` hoặc `https://eventhub-1lf8.onrender.com` |
 
 ---
 
-## Gửi email qua Gmail REST API (thay SMTP)
+## Gửi email qua Gmail REST API
 
-Từ ngày **26/09/2025**, Render **chặn outbound tới các port SMTP** (`25`, `465`, `587`) trên free tier (https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports) — gây lỗi `Connection timeout` cho mọi lần gửi Gmail SMTP. `src/utils/mailer.ts` đã chuyển sang **Gmail REST API** (HTTPS port 443, không bị chặn), vẫn giữ nguyên 3 hàm `sendTicketEmail` / `sendVerificationEmail` / `sendPasswordResetEmail` (email vé kèm ảnh QR PNG dựng `multipart/related`).
-
-**Cơ chế chọn:** đủ bộ `GMAIL_CLIENT_ID` + `GMAIL_CLIENT_SECRET` + `GMAIL_REFRESH_TOKEN` → gửi qua REST API (OAuth2, tự refresh + cache access token); ngược lại → fallback SMTP cũ (thường chỉ chạy local).
-
-**Cấu hình 1 lần (lấy token):**
-
-1. **Google Cloud Console** (https://console.cloud.google.com) → tạo project → **APIs & Services → Library** → bật **Gmail API**.
-2. **OAuth consent screen** → External → thêm scope `https://www.googleapis.com/auth/gmail.send` → thêm email tài khoản Gmail của bạn vào **Test users**.
-3. **Credentials** → Create Credentials → **OAuth client ID**:
-   - Loại **Web application**: thêm redirect URI `https://developers.google.com/oauthplayground` (dùng OAuth Playground); hoặc
-   - Loại **Desktop app**: không cần redirect URI, dùng script OAuth **loopback** (`http://localhost`) cho chắc chắn.
-4. Lấy **refresh token** (OAuth Playground hoặc script loopback) → điền vào 3 biến `GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN` (của **cùng 1 client** đã sinh token, và `GMAIL_USER` phải là **đúng account** có token).
-5. Thêm 3 biến này vào môi trường Render → Redeploy.
-
-Kiểm tra: log sẽ có `[Mailer] Gmail API đã chấp nhận email id=...` thay cho `Connection timeout`. Lỗi thường gặp: `invalid_grant` (token lệch scope/account), `403` (thiếu scope).
+Render free chặn SMTP 465/587, `src/utils/mailer.ts` dùng Gmail REST API (HTTPS 443). Đủ `GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN` → REST (OAuth2), thiếu → fallback SMTP. Cấu hình: Google Cloud Console → bật Gmail API → OAuth consent (scope `gmail.send`, thêm Test users) → Credentials OAuth client (Web/Desktop) → lấy refresh token qua OAuth Playground/loopback → set 3 biến + `GMAIL_USER` đúng account.
 
 ---
 
 ## Testing
 
 ```bash
-npm test
+# Backend
+cd eventhub-backend
+npm test              # Jest, 17 tests
+npm run test:watch
+
+# Frontend
+cd eventhub-frontend
+npm test              # Vitest run, 14 tests
+npm run test:watch
 ```
 
-**Chiến lược test** (không chạy theo % coverage, mà ưu tiên đúng chỗ khó nhất):
-- **Unit test** (`tests/unit`): mock hoàn toàn Repository, kiểm chứng chính xác thuật toán Optimistic Locking (Phase 7) — ép được server rơi vào đúng kịch bản race condition mong muốn (CAS thất bại rồi thắng, thất bại liên tục hết retry...), điều rất khó lặp lại chính xác khi chạy load-test thật
-- **Integration test** (`tests/integration`): dùng `supertest` gọi thẳng vào `app` (không mở port), kiểm chứng đúng hành vi middleware chain (401/400/404) mà không cần DB/Redis/RabbitMQ thật
+Chiến lược: Unit mock Repository (Optimistic Locking), Integration `supertest(app)` kiểm middleware chain 401/400/404 không cần DB.
 
 ---
 
 ## CI/CD
 
-Mỗi lần `push`/tạo Pull Request vào `main`, GitHub Actions tự động: cài đặt → generate Prisma Client → `tsc --noEmit` → `npm test` → build production. Nếu **push thẳng vào `main`** và mọi bước trên pass, tự động gọi Deploy Hook để triển khai lên Render.
+`.github/workflows/ci.yml` (riêng BE và FE) chạy khi push/PR vào `main`: `npm ci` → `prisma generate` (BE) → `tsc --noEmit` → `npm test` → `npm run build`. Nếu push thẳng `main` và pass → `curl POST $RENDER_DEPLOY_HOOK_URL` deploy lên Render (secret `RENDER_DEPLOY_HOOK_URL`).
 
-Xem `.github/workflows/ci.yml`.
+FE build kèm `VITE_API_URL` từ `vars.VITE_API_URL` fallback localhost.
 
 ---
 
 ## Monitoring
 
-Endpoint `GET /metrics` (format Prometheus) expose:
-- `http_request_duration_seconds` — độ trễ từng request, theo route/method/status code
-- `eventhub_tickets_sold_total` — tổng số vé đã bán (bao gồm cả vé mời)
-- `eventhub_hold_rejected_total{reason}` — số lần giữ chỗ bị từ chối, phân biệt **hết vé thật** (`out_of_stock`) và **tranh chấp kỹ thuật** (`contention`) — 2 con số này đòi hỏi 2 hướng xử lý khác nhau nếu tăng bất thường
+`GET /metrics` (Prometheus format):
 
----
-
-## Giới hạn đã biết
-
-Trung thực về phạm vi — đây không phải hệ thống production hoàn chỉnh, mà là project luyện tập tập trung vào chiều sâu kỹ thuật:
-
-- **Render Free tier có cold start** (~30-60s sau 15 phút không có request) — chấp nhận được cho mục đích demo, không ảnh hưởng tính đúng đắn dữ liệu (đã thiết kế các cơ chế phòng thủ: hold hết hạn tự loại trừ khỏi tính toán dù job dọn dẹp có tạm dừng, RabbitMQ queue `durable` không mất message khi consumer tạm ngừng)
-- **Realtime chưa đồng bộ hoàn hảo trạng thái đã đọc thông báo**: thông báo mới đẩy qua socket cập nhật ngay danh sách, nhưng việc chủ động emit "đã đọc" realtime chưa làm — thao tác mark-read vẫn qua REST (thiết kế có chủ đích để giữ trạng thái nhất quán ở DB)
-- **Test coverage tập trung vào logic quan trọng nhất** (race condition, middleware chain), chưa phủ hết mọi Service/Controller
-- **Chưa tích hợp**: Google Login, Swagger/OpenAPI docs — không nằm trong phạm vi cốt lõi, có thể mở rộng sau
-- **Full-Text Search dùng PostgreSQL native** thay vì Elasticsearch — quyết định có chủ đích (xem giải thích trong `event.repository.ts`), phù hợp quy mô dữ liệu vừa/nhỏ
+- `http_request_duration_seconds` histogram (route/method/status)
+- `eventhub_tickets_sold_total` counter
+- `eventhub_hold_rejected_total{reason="out_of_stock"|"contention"}`
 
 ---
 
 ## Tài liệu API
 
-- [`docs/API_TESTING_GUIDE.md`](./docs/API_TESTING_GUIDE.md) — toàn bộ endpoint, body JSON mẫu, ràng buộc nghiệp vụ
-- [`docs/INTERVIEW_PREP.md`](./docs/INTERVIEW_PREP.md) — tổng hợp câu hỏi/trả lời phỏng vấn theo từng chủ đề kỹ thuật
+- `eventhub-backend/docs/API_TESTING_GUIDE.md` — toàn bộ endpoint + body mẫu + 12 bước E2E
+- `eventhub-backend/docs/INTERVIEW_PREP.md` — câu hỏi phỏng vấn theo chủ đề
+
+---
+
+## Giới hạn đã biết
+
+- Render free cold start 30-60s, queue durable và hold check theo `expiresAt` nên không mất dữ liệu.
+- Chưa có Swagger/OpenAPI, Google Login.
+- Full-Text Search dùng Postgres native (`LIMIT 200`), chưa Elasticsearch.
+- `GET /api/users` ORGANIZER chỉ được `?role=STAFF` (để gán staff), không xem toàn bộ.

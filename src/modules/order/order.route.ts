@@ -8,19 +8,26 @@ import { checkoutSchema } from './order.validation';
 
 const router = Router();
 
+router.get(
+  '/event/:eventId/export',
+  authMiddleware,
+  requireRole('ADMIN', 'ORGANIZER'),
+  orderController.exportRevenue,
+);
+
+router.get(
+  '/:id',
+  authMiddleware,
+  requireRole('CUSTOMER', 'ADMIN', 'ORGANIZER'),
+  orderController.getOrder,
+);
+
 router.post(
   '/checkout',
   authMiddleware,
   requireRole('CUSTOMER'),
   validate(checkoutSchema),
   orderController.checkout,
-);
-
-router.get(
-  '/event/:eventId/export',
-  authMiddleware,
-  requireRole('ADMIN', 'ORGANIZER'),
-  orderController.exportRevenue,
 );
 
 router.post(

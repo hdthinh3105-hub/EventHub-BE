@@ -48,6 +48,8 @@ COPY prisma ./prisma/
 # --omit=dev: CHỈ cài dependencies thật sự cần lúc chạy (express,
 # prisma client, ioredis...) - KHÔNG cài typescript, tsc-alias, jest...
 RUN npm ci --omit=dev
+# tsx chỉ cần để chạy seed trong Docker (prisma/seed.ts viết bằng TS)
+RUN npm install --no-save tsx
 
 # Copy code đã build (JavaScript thuần) + Prisma Client đã generate từ
 # stage "builder" - không copy mã nguồn .ts, không copy devDependencies.
@@ -55,13 +57,16 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 EXPOSE 4000
 
 # Health check tích hợp sẵn trong image - Docker/orchestrator (VD:
 # docker-compose, Kubernetes) tự động biết container này có "sống"
 # hay không dựa vào endpoint /health đã viết từ Phase 3, không cần
 # công cụ ngoài nào kiểm tra thủ công.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "require('http').get('http://localhost:4000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-CMD ["node", "dist/server.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

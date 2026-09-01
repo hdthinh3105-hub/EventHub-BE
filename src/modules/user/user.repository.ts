@@ -2,9 +2,12 @@
 import { prisma } from '../../config/database';
 
 export const userRepository = {
-  findAll() {
+  findAll(roleName?: string) {
     return prisma.user.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        ...(roleName && { role: { name: roleName } }),
+      },
       select: {
         id: true,
         email: true,
@@ -23,6 +26,22 @@ export const userRepository = {
     return prisma.user.findFirst({
       where: { id, deletedAt: null },
       include: { role: true },
+    });
+  },
+
+  findByIdPublic(id: string) {
+    return prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        isActive: true,
+        isVerified: true,
+        createdAt: true,
+        role: { select: { name: true } },
+      },
     });
   },
 

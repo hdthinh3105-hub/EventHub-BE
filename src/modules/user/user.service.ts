@@ -2,13 +2,25 @@
 import { userRepository } from './user.repository';
 import { eventStaffRepository } from '../event-staff/event-staff.repository';
 import { AppError } from '../../utils/apiResponse';
-import { AssignRoleInput } from './user.validation';
+import { AssignRoleInput, ListUsersQuery } from './user.validation';
 import { JwtPayload } from '../../utils/jwt';
 import { writeAuditLog } from '../../utils/auditLog';
 
 export const userService = {
-  list() {
-    return userRepository.findAll();
+  list(query?: ListUsersQuery, actor?: JwtPayload) {
+    // ORGANIZER chỉ được xem danh sách STAFF (để gán check-in), không được xem toàn bộ user
+    if (actor?.roleName === 'ORGANIZER' && query?.role !== 'STAFF') {
+      throw new AppError('Organizer chỉ được xem danh sách nhân viên STAFF', 403);
+    }
+    return userRepository.findAll(query?.role);
+  },
+
+  async getById(id: string) {
+    const user = await userRepository.findByIdPublic(id);
+    if (!user) {
+      throw new AppError('Không tìm thấy user', 404);
+    }
+    return user;
   },
 
   async assignRole(targetUserId: string, input: AssignRoleInput, actor: JwtPayload) {

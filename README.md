@@ -24,29 +24,27 @@ Seed còn tạo 5 categories (Âm nhạc, Hội thảo...) và 3 venues (Nhà h�
 ### Yêu cầu: Docker Desktop đang chạy
 
 ```bash
-# 1. Clone
-git clone https://github.com/hdthinh3105-hub/EventHub.git
-git clone https://github.com/hdthinh3105-hub/EventHub-FE.git
-# Hoặc nếu bạn tải folder EventHub này thì bỏ qua
+# 1. Clone (bỏ qua nếu đã tải folder EventHub này thì dùng luôn EventHub/eventhub-backend và EventHub/eventhub-frontend)
+git clone https://github.com/hdthinh3105-hub/EventHub.git          # BE
+git clone https://github.com/hdthinh3105-hub/EventHub-FE.git       # FE
 
 # 2. Backend — tự có Postgres/Redis/RabbitMQ riêng
-cd EventHub/eventhub-backend
+cd EventHub
 cp .env.example .env
 # Mở .env điền 6 dòng sau (lấy free, không cần thẻ):
 # JWT_ACCESS_SECRET, JWT_REFRESH_SECRET (gõ bừa 32+ ký tự khác nhau)
 # GMAIL_USER, GMAIL_APP_PASSWORD, CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET
 # Để trống thì app vẫn chạy nhưng upload ảnh/gửi mail sẽ lỗi
-
 docker compose up --build -d
 docker compose logs -f app   # đợi "Server đang chạy tại http://0.0.0.0:4000" + "Seed hoàn tất"
 # Kiểm tra: http://localhost:4000/health → {"status":"ok"}
-# Kiểm tra: http://localhost:4000/api/categories → 5 categories
+# Nếu dùng folder có sẵn: cd EventHub/eventhub-backend thay vì cd EventHub
 
 # 3. Frontend — 1 service nginx riêng
-cd ../eventhub-frontend
+cd ../EventHub-FE
 docker compose up --build -d
 # Mở: http://localhost:8080
-# SPA fallback đã cấu hình, F5 ở /events/123 không 404
+# Nếu dùng folder có sẵn: cd EventHub/eventhub-frontend
 ```
 
 Dừng: `docker compose down` — Xóa data: `docker compose down -v`

@@ -43,8 +43,9 @@ async function bootstrap() {
   const httpServer = http.createServer(app);
   initSocket(httpServer);
 
-  const server = httpServer.listen(env.PORT, () => {
-    logger.info(`Server đang chạy tại http://localhost:${env.PORT}`);
+  const port = Number(env.PORT) || 4000;
+  const server = httpServer.listen(port, '0.0.0.0', () => {
+    logger.info(`Server đang chạy tại http://0.0.0.0:${port}`);
     logger.info(`Môi trường: ${env.NODE_ENV}`);
     startExpireHoldsJob();
   });

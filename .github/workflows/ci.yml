@@ -7,13 +7,31 @@ on:
     branches: [main]
 
 jobs:
-  build-and-test:
+  lint:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm install
+      - run: npm run lint
 
-    # Biến môi trường GIẢ - chỉ cần ĐÚNG ĐỊNH DẠNG để qua bước validate
-    # của Zod (env.ts, Phase 3), KHÔNG cần kết nối thật. Bộ test hiện
-    # tại chỉ dừng ở tầng middleware (401/400), không query DB/Redis/
-    # RabbitMQ thật.
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm install
+      - run: npx prisma generate
+      - run: npm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
     env:
       NODE_ENV: test
       DATABASE_URL: 'postgresql://user:password@localhost:5432/eventhub_ci'
@@ -26,45 +44,31 @@ jobs:
       CLOUDINARY_CLOUD_NAME: 'dummy_cloud'
       CLOUDINARY_API_KEY: 'dummy_key'
       CLOUDINARY_API_SECRET: 'dummy_secret'
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Cài đặt Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
+      - run: npm install
+      - run: npx prisma generate
+      - run: npm test
 
-      - name: Cài đặt package
-        run: npm install
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm install
+      - run: npx prisma generate
+      - run: npm run build
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Chạy test (Jest)
-        run: npm test
-
-      - name: Build production (đảm bảo build thật không lỗi)
-        run: npm run build
-
-  # --- CD: chỉ chạy khi build-and-test THÀNH CÔNG, và CHỈ khi push
-  # thẳng vào main (không chạy cho Pull Request - tránh deploy code
-  # chưa được review/merge). Đây chính là điểm khác biệt giữa CI đơn
-  # thuần (chỉ kiểm tra) và CI/CD thật sự (kiểm tra XONG mới đưa lên
-  # môi trường chạy thật).
   deploy:
-    needs: build-and-test
+    needs: [lint, typecheck, test, build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Gọi Render Deploy Hook
-        run: |
-          curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+      - run: curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"

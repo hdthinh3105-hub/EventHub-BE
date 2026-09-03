@@ -24,7 +24,7 @@ WORKDIR /app
 # mỗi lần bạn chỉ sửa 1 dòng code business logic.
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci
+RUN npm install
 
 COPY . .
 
@@ -47,7 +47,7 @@ COPY prisma ./prisma/
 
 # --omit=dev: CHỈ cài dependencies thật sự cần lúc chạy (express,
 # prisma client, ioredis...) - KHÔNG cài typescript, tsc-alias, jest...
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 # tsx chỉ cần để chạy seed trong Docker (prisma/seed.ts viết bằng TS)
 RUN npm install --no-save tsx
 

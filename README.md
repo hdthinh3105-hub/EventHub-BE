@@ -1,6 +1,6 @@
 # EventHub — Đặt vé & Quản lý Sự kiện
 
-Nền tảng đặt vé như Ticketbox thu nhỏ. **Backend** Express + Prisma + Postgres/Redis/RabbitMQ/Socket.IO, **Frontend** React + Vite. Demo: BE https://eventhub-1lf8.onrender.com — FE https://eventhub-fe.onrender.com — Postman https://www.postman.com/hdthinh3105/workspace/eventhub
+Nền tảng đặt vé như Ticketbox thu nhỏ. **Backend** Express + Prisma + Postgres/Redis/RabbitMQ/Socket.IO, **Frontend** React + Vite. Demo: BE https://eventhub-1lf8.onrender.com — FE https://eventhub-rosy.vercel.app — Postman https://www.postman.com/hdthinh3105/workspace/eventhub
 
 ---
 
@@ -107,7 +107,7 @@ Hoặc mở Postman collection ở link trên, set `{{baseUrl}} = http://localho
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Có | Gmail App Password (fallback SMTP) |
 | `GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN` | Không | Đủ 3 thì gửi qua Gmail REST API (port 443, không bị Render chặn), thiếu thì fallback SMTP |
 | `CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET` | Có | Ảnh bìa vẫn lưu trên Cloudinary kể cả khi chạy Docker |
-| `FRONTEND_URL` / `ALLOWED_ORIGINS` | Có | URL FE, VD `http://localhost:8080` (Docker) hoặc `https://eventhub-fe.onrender.com` (prod) |
+| `FRONTEND_URL` / `ALLOWED_ORIGINS` | Có | URL FE, VD `http://localhost:8080` (Docker) hoặc `https://eventhub-rosy.vercel.app` (prod) |
 | `PORT` / `NODE_ENV` | Không | Mặc định 4000 / development, Render tự set PORT=10000 |
 
 **Frontend `eventhub-frontend/.env`:**

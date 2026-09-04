@@ -84,6 +84,12 @@ app.get('/metrics', async (_req, res) => {
   res.send(await register.metrics());
 });
 
+// --- OpenAPI docs ---
+import openapi from '../docs/openapi.json';
+app.get('/api/docs', (_req, res) => {
+  res.json(openapi);
+});
+
 // --- Routes ---
 app.get('/api', (_req, res) => {
   res.json({ message: 'EventHub API đang chạy' });

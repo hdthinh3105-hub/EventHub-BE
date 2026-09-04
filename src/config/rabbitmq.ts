@@ -15,22 +15,41 @@ export const EMAIL_QUEUE = 'email_notifications';
 let connection: ChannelModel | null = null;
 let channel: Channel | null = null;
 
-export async function connectRabbitMQ(): Promise<void> {
-  connection = await amqp.connect(env.RABBITMQ_URL);
-  channel = await connection.createChannel();
+export async function connectRabbitMQ(retries = 5, delayMs = 2000): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      connection = await amqp.connect(env.RABBITMQ_URL);
+      channel = await connection.createChannel();
 
-  // durable: true - queue được LƯU XUỐNG ĐĨA (không chỉ tồn tại trong
-  // RAM), nghĩa là nếu RabbitMQ server restart, message đang chờ xử lý
-  // KHÔNG bị mất. Đánh đổi: ghi/đọc chậm hơn 1 chút so với queue không
-  // durable, nhưng với việc gửi email vé (không được phép mất), đây là
-  // đánh đổi bắt buộc phải chấp nhận.
-  await channel.assertQueue(EMAIL_QUEUE, { durable: true });
+      // durable: true - queue được LƯU XUỐNG ĐĨA (không chỉ tồn tại trong
+      // RAM), nghĩa là nếu RabbitMQ server restart, message đang chờ xử lý
+      // KHÔNG bị mất. Đánh đổi: ghi/đọc chậm hơn 1 chút so với queue không
+      // durable, nhưng với việc gửi email vé (không được phép mất), đây là
+      // đánh đổi bắt buộc phải chấp nhận.
+      await channel.assertQueue(EMAIL_QUEUE, { durable: true });
 
-  connection.on('error', (err) => {
-    logger.error(`[RabbitMQ] Lỗi connection: ${err.message}`);
-  });
+      connection.on('error', (err) => {
+        logger.error(`[RabbitMQ] Lỗi connection: ${err.message}`);
+      });
+      connection.on('close', () => {
+        logger.warn('[RabbitMQ] Connection closed, sẽ thử kết nối lại sau 5s');
+        setTimeout(() => {
+          connectRabbitMQ(retries, delayMs).catch((e) => logger.error(`[RabbitMQ] Reconnect failed: ${e.message}`));
+        }, 5000);
+      });
 
-  logger.info('[RabbitMQ] Kết nối thành công');
+      logger.info('[RabbitMQ] Kết nối thành công');
+      return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt === retries) {
+        logger.error(`[RabbitMQ] Kết nối thất bại sau ${retries} lần thử: ${msg}`);
+        throw err;
+      }
+      logger.warn(`[RabbitMQ] Kết nối thất bại lần ${attempt}/${retries}: ${msg}, thử lại sau ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
 }
 
 export function getChannel(): Channel {

@@ -1,0 +1,891 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "EventHub API",
+    "version": "1.0.0",
+    "description": "35 endpoints"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Metrics",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
+    "/api": {
+      "get": {
+        "summary": "API info",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
+    "/api/docs": {
+      "get": {
+        "summary": "OpenAPI",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Login",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "summary": "Refresh",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Logout",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Get me",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "post": {
+        "summary": "Verify",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "summary": "Forgot",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "summary": "Reset",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/users": {
+      "get": {
+        "summary": "List users",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "summary": "Get user",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/users/{id}/role": {
+      "patch": {
+        "summary": "Assign role",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "summary": "List cats",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create cat",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/categories/{id}": {
+      "patch": {
+        "summary": "Update cat",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete cat",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/venues": {
+      "get": {
+        "summary": "List venues",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create venue",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/venues/{id}": {
+      "patch": {
+        "summary": "Update venue",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete venue",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/events": {
+      "get": {
+        "summary": "List events",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create event",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/events/{id}": {
+      "get": {
+        "summary": "Get event",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "summary": "Update event",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete event",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/events/{id}/image": {
+      "post": {
+        "summary": "Upload image",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/ticket-types/event/{eventId}": {
+      "get": {
+        "summary": "List types",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create type",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/ticket-types/{id}": {
+      "patch": {
+        "summary": "Update type",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete type",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/ticket-holds": {
+      "post": {
+        "summary": "Hold",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/orders/checkout": {
+      "post": {
+        "summary": "Checkout",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/orders/{id}": {
+      "get": {
+        "summary": "Get order",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/orders/event/{eventId}/export": {
+      "get": {
+        "summary": "Export",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/orders/ticket-type/{ticketTypeId}/import": {
+      "post": {
+        "summary": "Import",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/event-staff/event/{eventId}": {
+      "get": {
+        "summary": "List staff",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "Assign",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/event-staff/event/{eventId}/user/{userId}": {
+      "delete": {
+        "summary": "Remove",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/checkins": {
+      "post": {
+        "summary": "Checkin",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "summary": "List notifs",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "patch": {
+        "summary": "Mark read",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "201": {
+            "description": "created"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  }
+}

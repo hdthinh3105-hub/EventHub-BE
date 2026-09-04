@@ -84,6 +84,7 @@ npm run dev            # http://localhost:5173
 ```bash
 curl http://localhost:4000/health
 curl http://localhost:4000/api/categories
+curl http://localhost:4000/api/docs | head -c 200  # OpenAPI 3.0
 
 # Login thử (PowerShell)
 $body = @{ email="admin@eventhub.vn"; password="Password123!" } | ConvertTo-Json
@@ -125,17 +126,18 @@ Hoặc mở Postman collection ở link trên, set `{{baseUrl}} = http://localho
 - Realtime Socket.IO: `ticket_sold`, `hold_released`, `checkin_processed`, `notification`
 - CRUD Event/Ticket/Category/Venue, gán Staff, check-in QR (3 tầng quyền), export/import Excel
 - Upload ảnh Cloudinary, Full-Text Search Postgres, AuditLog, Rate Limit, Cache-Aside Redis
+- OpenAPI 3.0 tại `GET /api/docs`, RabbitMQ auto-retry (5 lần, backoff 2s) + reconnect khi close
 
 ---
 
 ## 7. Testing & CI/CD
 
 ```bash
-cd eventhub-backend && npm test        # Jest 17 tests (middleware + optimistic locking)
+cd eventhub-backend && npm test        # Jest 21 tests (middleware + optimistic locking + docs + e2e hold→checkout→checkin + rabbitmq retry)
 cd eventhub-frontend && npm test       # Vitest 14 tests (api-client single-flight refresh, protected route, home)
 ```
 
-Mỗi push/PR vào `main` → GitHub Actions `tsc --noEmit` → test → build. Push thẳng `main` → gọi `RENDER_DEPLOY_HOOK_URL` deploy Render.
+Mỗi push/PR vào `main` → GitHub Actions 4 jobs song song `lint` / `typecheck` / `test` / `build` → `deploy` (BE, `needs: [lint, typecheck, test, build]`). FE chỉ `CI` (Vercel tự deploy).
 
 ---
 

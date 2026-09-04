@@ -56,6 +56,8 @@ RUN npm install --no-save tsx
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# dist/app.js require ../docs/openapi.json -> cần /app/docs/openapi.json lúc runtime
+COPY --from=builder /app/docs ./docs
 
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh

@@ -83,7 +83,7 @@ Nhiều ràng buộc không thể (hoặc không nên) diễn tả bằng Foreig
 
 ## 17. Testing — chiến lược chọn cái gì để test, bỏ qua cái gì?
 
-Không chạy theo % coverage. Ưu tiên: (1) Unit test cho logic **khó và dễ sai nhất** (Optimistic Locking) — mock Repository để ép đúng kịch bản race condition muốn kiểm chứng, việc mà chạy load-test thật rất khó lặp lại chính xác; (2) Integration test cho **hành vi middleware chain** (401/400/404) qua `supertest`, không cần DB/Redis/RabbitMQ thật vì mọi request test dừng sớm ở middleware. Không test mọi CRUD đơn giản — công sức lớn nhưng giá trị tăng thêm thấp so với 1 project cá nhân.
+Không chạy theo % coverage. Ưu tiên: (1) Unit test cho logic **khó và dễ sai nhất** (Optimistic Locking + RabbitMQ retry) — mock Repository để ép đúng kịch bản race condition; (2) Integration test cho **hành vi middleware chain** (401/400/404) và `GET /api/docs` qua `supertest`; (3) E2E `hold → checkout → checkin` (21 tests BE, 4 suites). Không test mọi CRUD đơn giản — công sức lớn nhưng giá trị tăng thêm thấp.
 
 ## 18. Docker — vì sao multi-stage build?
 
@@ -91,12 +91,24 @@ Tách môi trường BUILD (cần TypeScript, devDependencies) khỏi môi trư�
 
 ## 19. CI/CD — pipeline hoạt động ra sao?
 
-Push/PR vào `main` → GitHub Actions tự động: cài đặt → generate Prisma Client → `tsc --noEmit` (kiểm tra type) → `npm test` → build production. Chỉ khi **push thẳng main** và mọi bước trên pass mới gọi Deploy Hook triển khai lên Render — đảm bảo code lỗi không bao giờ tới được production.
+Push/PR vào `main` → GitHub Actions 4 jobs song song `lint` / `typecheck` / `test` / `build` (BE cần `prisma generate` trước typecheck/test/build, FE build kèm `VITE_API_URL`). Chỉ BE có thêm job `deploy` (`needs: [lint, typecheck, test, build]`) gọi Deploy Hook khi push thẳng `main` — FE bỏ CD vì Vercel tự deploy, chỉ giữ CI.
 
 ## 20. Monitoring — đo gì và tại sao?
 
 Ngoài metrics hạ tầng mặc định (CPU, memory, event loop lag), có 2 **business metric** riêng: tổng vé đã bán (Counter, phản ánh sức khỏe kinh doanh) và số lần giữ chỗ bị từ chối, tách nhãn theo lý do (`out_of_stock` vs `contention`) — 2 con số này cần 2 hướng xử lý khác nhau nếu tăng bất thường (1 cái là dấu hiệu sự kiện đang hot, 1 cái là dấu hiệu hệ thống bị nghẽn kỹ thuật thật).
 
-## 21. Kể 1 lần bạn tự phát hiện và sửa 1 lỗi nghiệp vụ thật (câu hỏi hành vi rất hay gặp)
+## 21. OpenAPI — vì sao thêm `GET /api/docs`?
+
+Thay vì Postman collection rời rạc, OpenAPI 3.0 (`docs/openapi.json:1`, 34 paths) là **hợp đồng sống** giữa BE và FE — FE generate types, BE validate, interviewer curl `/api/docs` thấy ngay 35 endpoints, không cần đọc code. Dùng Zod → OpenAPI thủ công, đủ để demo, không cần `swagger-ui` nặng.
+
+## 22. E2E — vì sao thêm `tests/e2e/flow.test.ts`?
+
+Unit test mock từng service riêng lẻ không phát hiện lỗi **tích hợp** (ví dụ `orderService.checkout` quên mock `notificationRepository` → `Foreign key violated` trong test E2E đã bắt được). E2E mock 6 repos nhưng chạy flow `hold → checkout → checkin` end-to-end, đảm bảo 3 modules phối hợp đúng.
+
+## 23. RabbitMQ retry — vì sao không để Docker restart?
+
+Ban đầu `connectRabbitMQ` fail → `process.exit(1)` → Docker `restart: unless-stopped` mới retry sau 10s, làm BE downtime 10s mỗi khi RabbitMQ chậm hơn BE. Thêm retry 5×2s + `connection.on('close')` auto-reconnect trong `src/config/rabbitmq.ts:18` giúp BE tự hồi phục trong 10s mà không cần container restart, log rõ `thử lại lần X`.
+
+## 24. Kể 1 lần bạn tự phát hiện và sửa 1 lỗi nghiệp vụ thật (câu hỏi hành vi rất hay gặp)
 
 Sau khi hoàn thành các phase, tôi tự rà lại toàn bộ luồng bằng cách tưởng tượng từng actor (Admin, Organizer, Staff, Customer) thao tác **độc lập, không đồng bộ với nhau** — phát hiện: Admin có thể đổi role của 1 Staff đang được gán vào Event, để lại liên kết "mồ côi". Cũng phát hiện thêm: Event ở trạng thái `DRAFT` vẫn bị lộ công khai và mua được vé; Event đã hủy vẫn cho checkout nếu khách giữ chỗ trước đó; reset password không thu hồi session cũ. Sửa bằng cách thêm kiểm tra ràng buộc ở tầng Service (không phải chỉ dựa Foreign Key DB), và bổ sung kiểm tra `event.status`/`startTime` ở đúng các điểm race có thể xảy ra (trước vòng lặp CAS, và lại một lần nữa ngay trước khi checkout — vì trạng thái Event có thể đổi ngay trong 10 phút giữ chỗ).

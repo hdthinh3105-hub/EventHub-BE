@@ -68,11 +68,13 @@ Luôn trả `200` dù email có tồn tại hay không (chống dò email).
 
 ---
 
-## 2. USER — `/api/users` (mọi route dưới đây cần role `ADMIN`)
+## 2. USER — `/api/users`
 
-### 2.1 Danh sách user — `GET /users`
+### 2.1 Danh sách user — `GET /users?role=` — `ADMIN` xem tất cả, `ORGANIZER` chỉ được `?role=STAFF` (để gán check-in, dropdown `GET /api/users?role=STAFF` cho cả hai)
 
-### 2.2 Gán role — `PATCH /users/:id/role`
+### 2.2 Chi tiết user — `GET /users/:id` — `ADMIN`, `ORGANIZER`
+
+### 2.3 Gán role — `PATCH /users/:id/role`
 ```json
 { "roleName": "ORGANIZER" }
 ```
@@ -124,7 +126,7 @@ Luôn trả `200` dù email có tồn tại hay không (chống dò email).
 
 | Method | URL | Quyền |
 |---|---|---|
-| GET | `/events?page=1&limit=10&categoryId=&status=&search=` | Public |
+| GET | `/events?page=1&limit=10&categoryId=&organizerId=&status=&search=` | Public |
 | GET | `/events/:id` | Public |
 | POST | `/events` | ADMIN, ORGANIZER |
 | PATCH | `/events/:id` | ADMIN, chủ Event (ORGANIZER) |
@@ -195,6 +197,8 @@ Không phải JSON — Body chọn **form-data**, key `image` kiểu **File**, c
 
 ## 8. ORDER — `/api/orders`
 
+### 8.0 Lấy đơn hàng — `GET /orders/:id` — `CUSTOMER` (chỉ đơn của mình), `ADMIN`/`ORGANIZER` — dùng cho `CheckoutSuccessPage` fallback `?orderId=` khi F5
+
 ### 8.1 Checkout — `POST /orders/checkout` — chỉ role `CUSTOMER`
 ```json
 { "holdId": "<uuid hold vừa tạo>" }
@@ -261,7 +265,9 @@ Body **form-data**, key `file` kiểu **File**, chọn `.xlsx` có cấu trúc:
 
 ---
 
-## 12. REALTIME — Socket.IO (kênh đẩy, không phải REST)
+## 12. DOCS — `GET /api/docs` (Public) — OpenAPI 3.0 JSON (34 paths)
+
+## 13. REALTIME — Socket.IO (kênh đẩy, không phải REST)
 
 Kết nối WebSocket tới chung port HTTP của server (`http://localhost:4000`, endpoint `/socket.io`). Có thể test bằng **Frontend EventHub** (`../eventhub-frontend`, chạy `npm run dev`) hoặc bất kỳ client Socket.IO nào.
 
